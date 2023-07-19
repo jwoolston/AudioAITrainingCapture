@@ -36,24 +36,14 @@ class Gui(object):
 
         # Interpret image data as row-major instead of col-major
         pg.setConfigOptions(imageAxisOrder='row-major')
+        pg.setConfigOptions(antialias=True)
         # Item for displaying image data
         self.spectrogram_img = pg.ImageItem()
         self.spectrogram.addItem(self.spectrogram_img)
-        self.spectrogram_img.setColorMap(pyqtgraph.colormap.get(name="jet", source='matplotlib'))
-        #self.spectrogram_hist = self.spectrogram_img.getHistogram()
-        # Add a histogram with which to control the gradient of the image
-        #self.spectrogram_hist = pg.HistogramLUTItem()
-        # Link the histogram to the image
-        #self.spectrogram_hist.setImageItem(self.spectrogram_img)
 
-        #self.spectrogram_hist.gradient.restoreState(
-        #    {'mode': 'rgb',
-        #     'ticks': [(0.5, (0, 182, 188, 255)),
-        #               (1.0, (246, 111, 0, 255)),
-        #               (0.0, (75, 0, 113, 255))]})
-
-        # If you don't add the histogram to the window, it stays invisible, but I find it useful.
-        #self.win.addItem(self.spectrogram_hist, row=2, col=2)
+        self.spectrogram.setMouseEnabled(x=False, y=False)
+        self.spectrogram.hideButtons()
+        self.spectrogram.addColorBar(self.spectrogram_img, values=(0, 30_000), label='Spectral Power', limits=(0, None), colorMap='inferno')
 
     def draw(self):
         waveform = self.audio_handler.get_latest_waveform()
@@ -94,14 +84,10 @@ class Gui(object):
             self.spectrogram_trace = True
 
         # Sxx contains the amplitude for each pixel
-        image_width = time[-1]
-        image_height = freq[-1]
-        pixel_size_x = image_width / (len(time) - 1)
-        pixel_size_y = image_height / (len(freq) - 1)
-        rect = QRectF(0, 0, image_width, image_height)
+        rect = QRectF(0, 0, time[-1], freq[-1])
 
-        self.spectrogram_img.setImage(amplitude, rect=rect)#scale=[time[-1] / len(time), len(freq) / freq[-1]])
-        #self.spectrogram_hist.setLevels(np.min(amplitude), np.max(amplitude))
+        self.spectrogram_img.setImage(amplitude, rect=rect)
+        #self.spectrogram_img.setLevels([0, 20000])
 
         # Scale the X and Y Axis to time and frequency (standard is pixels)
         # self.spectrogram.setYRange(0, freq[-1])
