@@ -73,23 +73,20 @@ class AudioHandler(object):
                 self.ring_buffer_index = 0
                 print(f'Ring buffer filled')
 
-        onsets = librosa.onset.onset_detect(y=self.data_buffer, sr=self.RATE, backtrack=False)
+        onsets = librosa.onset.onset_detect(y=self.data_buffer, sr=self.RATE, backtrack=True)
         onstm = librosa.frames_to_time(onsets, sr=self.RATE)
-
-        print(f'Onset Times: {onstm}')
 
         # Calculate RMS energy per frame. I shortened the frame length from the
         # default value in order to avoid ending up with too much smoothing
-        self.rms = librosa.feature.rms(y=self.data_buffer, frame_length=1024)[0, ]
+        self.rms = librosa.feature.rms(y=self.data_buffer, frame_length=64)[0, ]
         envtm = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.RATE)
-        print(f'Frame Times: {envtm}')
 
         if self.threshold is not None:
-            thresh_idx = [self.rms > self.threshold]
-            print(f'Event Indices: {thresh_idx}')
-            for tm in onstm:
-                print(f'Found: {tm in envtm[thresh_idx]}')
-            indices = [tm in envtm[thresh_idx] for tm in onstm]
+            thresh_idx = (self.rms > self.threshold).astype(int)
+            print(f'Thresh Index: {thresh_idx}')
+            bool_indices = [tm in envtm[thresh_idx] for tm in onstm]
+            print(f'Bool Indices: {bool_indices}')
+            indices = np.where(bool_indices)[0]
             print(f'Indices: {indices}')
             correctedonstm = onstm[indices]
             print(f'Threshold Times: {correctedonstm}')
