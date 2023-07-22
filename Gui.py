@@ -1,4 +1,5 @@
 import PyQt5
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QRectF
 from pyqtgraph.Qt import QtCore
 import pyqtgraph as pg
@@ -13,25 +14,34 @@ class Gui(object):
         self.SIZE_X = self.audio_handler.CHUNK * self.audio_handler.BUFFER_BLOCKS
         self.FS = self.audio_handler.RATE
 
+        # Start by initializing Qt (only once per application)
         self.app = pg.mkQApp("Hit Detect Training Capture")
-        self.win = pg.GraphicsLayoutWidget(show=True, title='Capture Analyzer')
+
+        # Define a top-level widget to hold everything
+        self.win = QtWidgets.QWidget()
         self.win.setWindowTitle('Capture Analyzer')
+
+        # Create a grid layout to manage the widgets size and position
+        self.layout = QtWidgets.QGridLayout()
+        self.win.setLayout(self.layout)
         self.win.resize(1440, 1024)
 
-        self.waveform = self.win.addPlot(
-            title='WAVEFORM', row=1, col=1  # axisItems={'bottom': wf_xaxis},
-        )
-        self.rms_plot = self.win.addPlot(
-            title='RMS', row=2, col=1
-        )
-        # A plot area (ViewBox + axes) for displaying the image
-        self.spectrogram = self.win.addPlot(
-            title='SPECTROGRAM', row=3, col=1
-        )
+        # Plot Widgets
+        self.waveform = pg.PlotWidget(title='WAVEFORM')
+        self.rms_plot = pg.PlotWidget(title='RMS')
+        self.spectrogram = pg.PlotWidget(title='SPECTROGRAM')
+
+        # Control Widgets
+        self.baseline_rms_capture = QtWidgets.QPushButton('Capture Noise RMS')
+        self.baseline_rms_capture.clicked.connect(self.capture_rms_baseline)
+
+        self.layout.addWidget(self.waveform, 0, 0)
+        self.layout.addWidget(self.rms_plot, 1, 0)
+        self.layout.addWidget(self.baseline_rms_capture, 2, 0)
+        self.layout.addWidget(self.spectrogram, 3, 0)
 
         self.rms_x = None
         self.rms_trace = None
-        self.waveform_x = np.arange(0, self.SIZE_X)
         self.waveform_trace = None
         self.spectrogram_trace = False
 
@@ -47,24 +57,28 @@ class Gui(object):
         self.spectrogram.addColorBar(self.spectrogram_img, values=(0, 30_000), label='Spectral Power', limits=(0, None),
                                      colorMap='inferno')
 
+        self.win.show()
+
     def draw(self):
-        waveform = self.audio_handler.get_latest_waveform()
-        rms = self.audio_handler.get_latest_rms()
+        waveform_y, waveform_x = self.audio_handler.get_latest_waveform()
+        rms_y, rms_x = self.audio_handler.get_latest_rms()
         spectrogram = self.audio_handler.get_latest_spectrogram()
-        if waveform is not None:
-            self.update_waveform(waveform)
-        if rms is not None:
-            self.update_rms(rms)
+        if waveform_y is not None:
+            self.update_waveform(waveform_x, waveform_y)
+        if rms_y is not None:
+            self.update_rms(rms_x, rms_y)
         if spectrogram is not None:
             self.update_spectrogram(spectrogram)
 
-    def update_waveform(self, waveform):
-        self.set_waveform_data(waveform)
+    def capture_rms_baseline(self):
+        print("Capturing RMS baseline.")
+        self.audio_handler.capture_rms_baseline()
 
-    def update_rms(self, rms):
-        if self.rms_x is None:
-            self.rms_x = np.arange(0, len(rms))
-        self.set_rms_data(rms)
+    def update_waveform(self, waveform_x, waveform_y):
+        self.set_waveform_data(waveform_x, waveform_y)
+
+    def update_rms(self, rms_x, rms_y):
+        self.set_rms_data(rms_x, rms_y)
 
     def update_spectrogram(self, spectrogram):
         self.set_spectrogram_data(spectrogram[0], spectrogram[1], spectrogram[2])
@@ -72,26 +86,31 @@ class Gui(object):
     def run(self):
         timer = QtCore.QTimer()
         timer.timeout.connect(self.draw)
-        timer.start(20)
+        timer.start(32)
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             self.app.instance().exec_()
 
     def stop(self):
         self.win.close()
 
-    def set_waveform_data(self, data):
+    def set_waveform_data(self, x, y):
         if self.waveform_trace is None:
             self.waveform_trace = self.waveform.plot(pen='c', width=3)
+            self.waveform.setXRange(x[0], x[-1], padding=0.005)
             self.waveform.setYRange(-1, 1, padding=0)
-            self.waveform.setXRange(0, self.SIZE_X, padding=0.005)
-        self.waveform_trace.setData(self.waveform_x, data)
+            self.waveform.setLabel('left', "Amplitude", units='V')
+            self.waveform.setLabel('bottom', "Time", units='s')
+        self.waveform_trace.setData(x, y)
 
-    def set_rms_data(self, data):
+    def set_rms_data(self, x, y):
         if self.rms_trace is None:
             self.rms_trace = self.rms_plot.plot(pen='r', width=3)
-            self.rms_plot.setYRange(0, 0.5, padding=0)
-            self.rms_plot.setXRange(0, len(self.rms_x), padding=0.005)
-        self.rms_trace.setData(self.rms_x, data)
+            self.rms_plot.setXRange(x[0], x[-1])
+            self.rms_plot.setYRange(0, 0.1)
+            self.rms_plot.setLogMode(x=False, y=True)
+            self.rms_plot.setLabel('left', "RMSe")
+            self.rms_plot.setLabel('bottom', "Time", units='s')
+        self.rms_trace.setData(x, y)
 
     def set_spectrogram_data(self, time, freq, amplitude):
         if amplitude is None:
