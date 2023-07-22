@@ -73,35 +73,24 @@ class AudioHandler(object):
 
         # Compute the STFT of the buffer after this update for use by the following analysis
         Sc = librosa.stft(y=self.data_buffer, n_fft=2048, hop_length=self.HOP_LENGTH, center=True,
-                     window=scipy.signal.windows.blackman)
+                          window=scipy.signal.windows.blackman)
         self.times = librosa.times_like(X=Sc, sr=self.RATE, n_fft=2048, hop_length=self.HOP_LENGTH)
         S = np.abs(Sc)
-
-        # Use the STFT to compute onsets
-        onset_env = librosa.onset.onset_strength(S=S, sr=self.RATE, center=True)
-        onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=self.RATE, hop_length=self.HOP_LENGTH,
-                                            backtrack=True)
-
-        onstm = librosa.frames_to_time(onsets, sr=self.RATE)
 
         # Calculate RMS energy per frame. The frame length from the default value
         # in order to avoid ending up with too much smoothing
         self.rms = librosa.feature.rms(S=S, hop_length=self.HOP_LENGTH)[0, ]
-        envtm = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.RATE)
 
         if self.threshold is not None:
             thresh_idx = (self.rms > self.threshold).astype(int)
-            bool_indices = [tm in envtm[thresh_idx] for tm in onstm]
-            indices = np.where(bool_indices)[0]
-            correctedonstm = onstm[indices]
-            if len(correctedonstm) > 0:
-                print(f'Thresh Index: {thresh_idx}')
-                print(f'Bool Indices: {bool_indices}')
-                print(f'Indices: {indices}')
-                print(f'Threshold Times: {correctedonstm}')
-        # self.spectrogram_f, self.spectrogram_t, self.spectrogram_A = signal.spectrogram(self.data_buffer, self.RATE,
-        #                                                                                detrend=False,
-        #                                                                                mode='psd')
+            # print(f'Thresh Index: {thresh_idx}')
+            nz_count = np.count_nonzero(thresh_idx)
+            print(f'Non-Zero: {nz_count}')
+            if nz_count > 0:
+                self.spectrogram_f, self.spectrogram_t, self.spectrogram_A = signal.spectrogram(self.data_buffer,
+                                                                                                self.RATE,
+                                                                                                detrend=False,
+                                                                                                mode='psd')
 
         return None, pyaudio.paContinue
 
@@ -127,24 +116,14 @@ class AudioHandler(object):
         high = cutoff / nyq
         return butter(order, high, btype='high', analog=False)
 
-    # def determine_window_range(self):
-    #     # Total number of blocks in the ring buffer
-    #     max_count = self.ring_buffer_view.shape[0]
-    #
-    #     # Determine the number of filled blocks in the ring buffer
-    #     if self.ring_buffer_full:
-    #         count = max_count
-    #     else:
-    #         # The number of full blocks on the front side of the buffer
-    #         count = 0 if self.ring_buffer_index == 0 else self.ring_buffer_index - 1
-    #
-    #     # Determine indices. This should start at the next write position (oldest data) and go to the most recent block
-    #     return np.append(np.arange(self.ring_buffer_index, count), np.arange(self.ring_buffer_index))
-
     def get_latest_waveform(self):
+        if self.times is None:
+            return None
         return self.data_buffer, np.linspace(self.times[0], self.times[-1], len(self.data_buffer))
 
     def get_latest_rms(self):
+        if self.times is None:
+            return None
         return self.rms, self.times
 
     def get_latest_spectrogram(self):

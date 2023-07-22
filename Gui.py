@@ -60,13 +60,13 @@ class Gui(object):
         self.win.show()
 
     def draw(self):
-        waveform_y, waveform_x = self.audio_handler.get_latest_waveform()
-        rms_y, rms_x = self.audio_handler.get_latest_rms()
+        waveform = self.audio_handler.get_latest_waveform()
+        rms = self.audio_handler.get_latest_rms()
         spectrogram = self.audio_handler.get_latest_spectrogram()
-        if waveform_y is not None:
-            self.update_waveform(waveform_x, waveform_y)
-        if rms_y is not None:
-            self.update_rms(rms_x, rms_y)
+        if waveform is not None:
+            self.update_waveform(waveform)
+        if rms is not None:
+            self.update_rms(rms)
         if spectrogram is not None:
             self.update_spectrogram(spectrogram)
 
@@ -74,11 +74,11 @@ class Gui(object):
         print("Capturing RMS baseline.")
         self.audio_handler.capture_rms_baseline()
 
-    def update_waveform(self, waveform_x, waveform_y):
-        self.set_waveform_data(waveform_x, waveform_y)
+    def update_waveform(self, waveform):
+        self.set_waveform_data(waveform[1], waveform[0])
 
-    def update_rms(self, rms_x, rms_y):
-        self.set_rms_data(rms_x, rms_y)
+    def update_rms(self, rms):
+        self.set_rms_data(rms[1], rms[0])
 
     def update_spectrogram(self, spectrogram):
         self.set_spectrogram_data(spectrogram[0], spectrogram[1], spectrogram[2])
@@ -88,7 +88,7 @@ class Gui(object):
         timer.timeout.connect(self.draw)
         timer.start(32)
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            self.app.instance().exec_()
+            self.app.instance().exec()
 
     def stop(self):
         self.win.close()
