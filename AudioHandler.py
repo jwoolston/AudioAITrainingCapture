@@ -6,7 +6,7 @@ import scipy.signal.windows
 import pyaudio
 from scipy import signal
 from scipy.signal import butter, filtfilt
-from PyQt5.QtCore import QObject, QThread, pyqtSignal, QMutex, QWaitCondition
+from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 
 
 class Detection(object):
@@ -33,9 +33,6 @@ class AudioHandler(QThread):
         self.filter_coef = None
         self.threshold = None
         self.rms = None
-        self.spectrogram_t = None
-        self.spectrogram_f = None
-        self.spectrogram_A = None
         self.FORMAT = pyaudio.paFloat32
         self.CHANNELS = 1
         self.RATE = 22050
@@ -133,17 +130,19 @@ class AudioHandler(QThread):
                 if nz_count > 0:
                     print(f'Detection triggered - accumulating buffer')
                     self.accumulating = True
-                    self.detection_block_counter = 1
+                    offset = np.argmax(thresh_idx != 0)
+                    print(f'Offset: {offset} Shape thresholds: {thresh_idx.shape}')
+                    self.detection_block_counter = (len(thresh_idx) - offset)
 
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')
-                self.spectrogram_f, self.spectrogram_t, self.spectrogram_A = signal.spectrogram(self.data_buffer,
+                spectrogram_f, spectrogram_t, spectrogram_A = signal.spectrogram(self.data_buffer,
                                                                                                 self.RATE,
                                                                                                 detrend=False,
                                                                                                 mode='psd')
                 self.zero_buffer()
                 self.pause()
-                self.detection.emit(Detection(self.spectrogram_t, self.spectrogram_f, self.spectrogram_A))
+                self.detection.emit(Detection(spectrogram_t, spectrogram_f, spectrogram_A))
 
         # Cleanup the stream
         self.stream.close()
