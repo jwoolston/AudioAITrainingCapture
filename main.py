@@ -2,6 +2,9 @@
 import signal
 import sys
 
+import pyqtgraph as pg
+from PyQt5.QtWidgets import QApplication
+
 from AudioHandler import AudioHandler
 from Gui import Gui
 
@@ -17,18 +20,25 @@ def print_hi(name):
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
-    audio.stop()
     gui.stop()
     sys.exit(0)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    audio = AudioHandler()
-    gui = Gui(audio)
+    #app = QApplication(sys.argv)
+    #app.setApplicationDisplayName("Hit Detect Training Capture")
+    #window = Gui()
+    #window.show()
+    #sys.exit(app.exec_())
 
+    # Start by initializing Qt (only once per application)
+    app = pg.mkQApp("Hit Detect Training Capture")
+
+    # Define a top-level widget to hold everything
+    gui = Gui()
+    gui.show()
     signal.signal(signal.SIGINT, signal_handler)
-
-    audio.start()  # open the stream
     gui.run()
+    app.exec()
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
