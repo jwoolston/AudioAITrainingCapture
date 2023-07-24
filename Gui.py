@@ -1,9 +1,10 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QMessageBox, QDialog
+from PyQt5.QtWidgets import QMessageBox, QDialog, QFileDialog, QHBoxLayout, QComboBox
 from pyqtgraph.Qt import QtCore
 import pyqtgraph as pg
 
+import SampleWriter
 from AudioHandler import AudioHandler
 from DetectionDialog import DetectionDialog
 
@@ -32,13 +33,27 @@ class Gui(QtWidgets.QWidget):
         self.rms_plot = pg.PlotWidget(title='RMS')
 
         # Control Widgets
+        self.cartridge_combobox = QComboBox()
+        self.cartridge_combobox.addItem('380 ACP')
+        self.cartridge_combobox.addItem('38 Special')
+        self.cartridge_combobox.addItem('357 Magnum')
+        self.cartridge_combobox.addItem('9mm')
+        self.cartridge_combobox.addItem('40 S&W')
+        self.cartridge_combobox.addItem('45 ACP')
+        self.cartridge_combobox.addItem('44 Magnum')
+        self.cartridge_combobox.addItem('300 Blackout')
+
+        #self.control_layout = QHBoxLayout()
+        #self.control_layout.addWidget(self.cartridge_combobox)
         self.baseline_rms_capture = QtWidgets.QPushButton('Capture Noise RMS')
         self.baseline_rms_capture.clicked.connect(self.capture_rms_baseline)
+        #self.control_layout.addWidget(self.baseline_rms_capture)
 
         # Add the widgets to the window
         self.layout.addWidget(self.waveform, 0, 0)
         self.layout.addWidget(self.rms_plot, 1, 0)
-        self.layout.addWidget(self.baseline_rms_capture, 2, 0)
+        self.layout.addWidget(self.cartridge_combobox, 2, 0)
+        self.layout.addWidget(self.baseline_rms_capture, 2, 1)
 
         self.rms_trace = None
         self.waveform_trace = None
@@ -67,6 +82,12 @@ class Gui(QtWidgets.QWidget):
         self.set_rms_data(rms[1], rms[0])
 
     def run(self):
+        file_dialog = QFileDialog(parent=self)
+        file_dialog.setFileMode(QFileDialog.Directory)
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+        #file_dialog.exec()
+        #directory = file_dialog.getSaveFileName()
+        #print(f'Save directory: {directory}')
         # Setup audio handler thread
         # Make thread execute audio handler run() method when started
         # Allow the audio handler loop to exit
@@ -96,8 +117,13 @@ class Gui(QtWidgets.QWidget):
         button = detection_dialog.exec()
         print(f'Dialog Button: {button}')
         if button == QDialog.DialogCode.Accepted:
-            print(f'Success! Score: {detection_dialog.score.getValue()} Is Head: {detection_dialog.is_head.getValue()} '
-                  f'Is Edge: {detection_dialog.on_edge.getValue()}')
+            score = detection_dialog.score.getValue()
+            is_head = detection_dialog.is_head.getValue()
+            is_edge = detection_dialog.on_edge.getValue()
+            cartridge = self.cartridge_combobox.currentText()
+            print(f'Success! Score: {score} Is Head: {is_head} Is Edge: {is_edge} Cartridge: {cartridge}')
+            sample = SampleWriter.Sample(detection.buffer, detection.rate, score, is_head, is_edge, cartridge)
+            SampleWriter.write_sample(sample)
         elif button == QDialog.DialogCode.Rejected:
             print("Cancel!")
         else:
