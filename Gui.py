@@ -1,6 +1,6 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QDialog
 from pyqtgraph.Qt import QtCore
 import pyqtgraph as pg
 
@@ -95,9 +95,10 @@ class Gui(QtWidgets.QWidget):
         detection_dialog = DetectionDialog(detection, parent=self)
         button = detection_dialog.exec()
         print(f'Dialog Button: {button}')
-        if button == QMessageBox.Apply:
-            print("Success!")
-        elif button == QMessageBox.Discard:
+        if button == QDialog.DialogCode.Accepted:
+            print(f'Success! Score: {detection_dialog.score.getValue()} Is Head: {detection_dialog.is_head.getValue()} '
+                  f'Is Edge: {detection_dialog.on_edge.getValue()}')
+        elif button == QDialog.DialogCode.Rejected:
             print("Cancel!")
         else:
             print("Unknown button response")
