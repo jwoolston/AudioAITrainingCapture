@@ -140,6 +140,8 @@ class DetectionDialog(QDialog):
         # this case kHz)
         self.spectrogram.setLabel('left', "Frequency", units='Hz')
 
+        self.score.lineEdit.setFocus()
+
     def add_int_inputs_panel(self, parent, row, column):
         hlayout = QHBoxLayout()
         self.score = LabelledIntField('Score', 0)
