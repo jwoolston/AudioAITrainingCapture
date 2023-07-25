@@ -112,8 +112,6 @@ class Gui(QtWidgets.QWidget):
         timer = QtCore.QTimer()
         timer.timeout.connect(self.draw)
         timer.start(32)
-        # if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        #    self.app.instance().exec()
 
     def stop(self):
         self.stop_audio.emit()
@@ -126,9 +124,9 @@ class Gui(QtWidgets.QWidget):
         button = detection_dialog.exec()
         print(f'Dialog Button: {button}')
         if button == QDialog.DialogCode.Accepted:
-            score = detection_dialog.score.getValue()
-            is_head = detection_dialog.is_head.getValue()
-            is_edge = detection_dialog.on_edge.getValue()
+            score = detection_dialog.score.get_value()
+            is_head = detection_dialog.is_head.get_value()
+            is_edge = detection_dialog.on_edge.get_value()
             cartridge = self.cartridge_combobox.currentText()
             print(f'Success! Score: {score} Is Head: {is_head} Is Edge: {is_edge} Cartridge: {cartridge}')
             sample = Sample(detection.buffer, detection.rate, score, is_head, is_edge, cartridge)

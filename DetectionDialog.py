@@ -33,13 +33,13 @@ class LabelledIntField(QWidget):
         layout.addWidget(self.lineEdit)
         layout.addStretch()
 
-    def setLabelWidth(self, width):
+    def set_label_width(self, width):
         self.label.setFixedWidth(width)
 
-    def setInputWidth(self, width):
+    def set_input_width(self, width):
         self.lineEdit.setFixedWidth(width)
 
-    def getValue(self):
+    def get_value(self):
         return int(self.lineEdit.text())
 
 
@@ -65,7 +65,7 @@ class LabelledCheckboxField(QWidget):
         layout.addWidget(self.checkbox)
         layout.addStretch()
 
-    def getValue(self):
+    def get_value(self):
         return self.checkbox.isChecked()
 
 
@@ -106,8 +106,6 @@ class DetectionDialog(QDialog):
         # Waveform plot
 
         self.waveform_trace = self.waveform.plot(pen='c', width=3)
-        # self.waveform.setXRange(self.times[0], self.times[-1], padding=0.005)
-        # self.waveform.setYRange(-1, 1, padding=0)
         self.waveform.setLabel('left', "Amplitude", units='V')
         self.waveform.setLabel('bottom', "Time", units='s')
         self.waveform_trace.setData(self.times, self.data)
