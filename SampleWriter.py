@@ -19,6 +19,8 @@ class Sample(object):
 class SampleWriter(object):
     def __init__(self, directory):
         self.directory = directory
+        now = datetime.now()
+        self.root_dir = f'{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}'
 
     def set_new_directory(self, directory):
         self.directory = directory
@@ -26,8 +28,9 @@ class SampleWriter(object):
     def write_sample(self, sample):
         print(f'Writing sample to disk.')
         path = str(int(datetime.timestamp(datetime.now())))
-        os.makedirs(self.directory, exist_ok=True)
-        sample_filename = os.path.join(self.directory, f'{path}.aiff')
+        working_dir = os.path.join(self.root_dir, self.directory)
+        os.makedirs(working_dir, exist_ok=True)
+        sample_filename = os.path.join(working_dir, f'{path}.aiff')
 
         with aifc.open(sample_filename, 'wb') as out:
             out.setnchannels(1)
