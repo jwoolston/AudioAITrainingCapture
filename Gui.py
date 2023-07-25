@@ -1,10 +1,10 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QMessageBox, QDialog, QFileDialog, QHBoxLayout, QComboBox
+from PyQt5.QtWidgets import QDialog, QFileDialog, QComboBox
 from pyqtgraph.Qt import QtCore
 import pyqtgraph as pg
 
-import SampleWriter
+from SampleWriter import SampleWriter, Sample
 from AudioHandler import AudioHandler
 from DetectionDialog import DetectionDialog
 
@@ -42,18 +42,19 @@ class Gui(QtWidgets.QWidget):
         self.cartridge_combobox.addItem('45 ACP')
         self.cartridge_combobox.addItem('44 Magnum')
         self.cartridge_combobox.addItem('300 Blackout')
+        self.cartridge_combobox.currentIndexChanged.connect(self.update_writer_directory)
 
-        #self.control_layout = QHBoxLayout()
-        #self.control_layout.addWidget(self.cartridge_combobox)
+        self.cartridge_array = ['380_acp', '38_special', '357_magnum', '9mm', '40_sw', '45_acp', '44_magnum',
+                                '300_blackout']
+
         self.baseline_rms_capture = QtWidgets.QPushButton('Capture Noise RMS')
         self.baseline_rms_capture.clicked.connect(self.capture_rms_baseline)
-        #self.control_layout.addWidget(self.baseline_rms_capture)
 
         # Add the widgets to the window
-        self.layout.addWidget(self.waveform, 0, 0)
-        self.layout.addWidget(self.rms_plot, 1, 0)
-        self.layout.addWidget(self.cartridge_combobox, 2, 0)
-        self.layout.addWidget(self.baseline_rms_capture, 2, 1)
+        self.layout.addWidget(self.waveform, 0, 0, 1, 4)
+        self.layout.addWidget(self.rms_plot, 1, 0, 1, 4)
+        self.layout.addWidget(self.cartridge_combobox, 2, 2, 1, 1)
+        self.layout.addWidget(self.baseline_rms_capture, 2, 3, 1, 1)
 
         self.rms_trace = None
         self.waveform_trace = None
@@ -61,6 +62,8 @@ class Gui(QtWidgets.QWidget):
         # Interpret image data as row-major instead of col-major
         pg.setConfigOptions(imageAxisOrder='row-major')
         pg.setConfigOptions(antialias=True)
+
+        self.sample_writer = SampleWriter(self.cartridge_array[self.cartridge_combobox.currentIndex()])
 
     def draw(self):
         waveform = self.audio_handler.get_latest_waveform()
@@ -75,6 +78,9 @@ class Gui(QtWidgets.QWidget):
         print("Capturing RMS baseline.")
         self.audio_handler.capture_rms_baseline()
 
+    def update_writer_directory(self, index):
+        self.sample_writer.set_new_directory(self.cartridge_array[index])
+
     def update_waveform(self, waveform):
         self.set_waveform_data(waveform[1], waveform[0])
 
@@ -85,9 +91,9 @@ class Gui(QtWidgets.QWidget):
         file_dialog = QFileDialog(parent=self)
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
-        #file_dialog.exec()
-        #directory = file_dialog.getSaveFileName()
-        #print(f'Save directory: {directory}')
+        # file_dialog.exec()
+        # directory = file_dialog.getSaveFileName()
+        # print(f'Save directory: {directory}')
         # Setup audio handler thread
         # Make thread execute audio handler run() method when started
         # Allow the audio handler loop to exit
@@ -122,8 +128,8 @@ class Gui(QtWidgets.QWidget):
             is_edge = detection_dialog.on_edge.getValue()
             cartridge = self.cartridge_combobox.currentText()
             print(f'Success! Score: {score} Is Head: {is_head} Is Edge: {is_edge} Cartridge: {cartridge}')
-            sample = SampleWriter.Sample(detection.buffer, detection.rate, score, is_head, is_edge, cartridge)
-            SampleWriter.write_sample(sample)
+            sample = Sample(detection.buffer, detection.rate, score, is_head, is_edge, cartridge)
+            self.sample_writer.write_sample(sample)
         elif button == QDialog.DialogCode.Rejected:
             print("Cancel!")
         else:
