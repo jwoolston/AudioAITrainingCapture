@@ -83,11 +83,11 @@ class AudioHandler(QThread):
 
     def get_stream(self):
         return self.p.open(format=self.FORMAT,
-                    channels=self.CHANNELS,
-                    rate=self.RATE,
-                    input=True,
-                    output=False,
-                    frames_per_buffer=self.CHUNK)
+                           channels=self.CHANNELS,
+                           rate=self.RATE,
+                           input=True,
+                           output=False,
+                           frames_per_buffer=self.CHUNK)
 
     def reset_stream(self):
         self.stream.close()
@@ -128,15 +128,14 @@ class AudioHandler(QThread):
             self.update.emit()
 
             if self.threshold is not None and not self.accumulating:
-                thresh_idx = (self.rms > self.threshold).astype(int)
+                thresh_idx = np.asarray(self.rms > self.threshold).astype(int)
                 # print(f'Thresh Index: {thresh_idx}')
                 nz_count = np.count_nonzero(thresh_idx)
                 if nz_count > 0:
-                    print(f'Detection triggered - accumulating buffer')
                     self.accumulating = True
                     offset = np.argmax(thresh_idx != 0)
-                    print(f'Offset: {offset} Shape thresholds: {thresh_idx.shape}')
-                    self.detection_block_counter = (len(thresh_idx) - offset)
+                    print(f'Offset: {offset}')
+                    self.detection_block_counter = 1 #(len(thresh_idx) - offset)
 
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')
