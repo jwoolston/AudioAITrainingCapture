@@ -40,7 +40,7 @@ class AudioHandler(QThread):
         self.CHUNK = 1024 * 1
         self.WINDOW_SIZE = 512
         self.HOP_LENGTH = 512
-        self.BUFFER_BLOCKS = int(math.ceil(self.RATE / 2 / self.CHUNK))
+        self.BUFFER_BLOCKS = int(math.ceil(self.RATE / self.CHUNK))
         self.p = None
         self.stream = None
         self.detection_block_counter = 0
@@ -68,8 +68,10 @@ class AudioHandler(QThread):
         self.do_work = False
 
     def pause(self):
+        self.reset_stream()
         self.pause_mutex.lock()
         self.pause_flag = True
+        self.pause_wait.wait(self.pause_mutex)
         self.pause_mutex.unlock()
 
     def resume(self):
@@ -79,22 +81,23 @@ class AudioHandler(QThread):
         self.pause_wait.wakeAll()
         self.pause_mutex.unlock()
 
+    def get_stream(self):
+        return self.p.open(format=self.FORMAT,
+                    channels=self.CHANNELS,
+                    rate=self.RATE,
+                    input=True,
+                    output=False,
+                    frames_per_buffer=self.CHUNK)
+
+    def reset_stream(self):
+        self.stream.close()
+        self.stream = None
+
     def work(self):
         self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(format=self.FORMAT,
-                                  channels=self.CHANNELS,
-                                  rate=self.RATE,
-                                  input=True,
-                                  output=False,
-                                  # stream_callback=self.callback,
-                                  frames_per_buffer=self.CHUNK)
+        self.stream = self.get_stream()
 
         while self.do_work:
-            self.pause_mutex.lock()
-            if self.pause_flag:
-                print('Pausing audio handler')
-                self.pause_wait.wait(self.pause_mutex)
-            self.pause_mutex.unlock()
             wf_data = np.frombuffer(self.stream.read(self.CHUNK), dtype=np.float32)
             filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], wf_data)
 
@@ -138,11 +141,12 @@ class AudioHandler(QThread):
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')
                 self.detection.emit(Detection(self.times, self.data_buffer, self.RATE, self.HOP_LENGTH, 2048))
-                self.zero_buffer()
                 self.pause()
+                self.zero_buffer()
+                self.stream = self.get_stream()
 
         # Cleanup the stream
-        self.stream.close()
+        self.reset_stream()
         self.p.terminate()
 
     def zero_buffer(self):

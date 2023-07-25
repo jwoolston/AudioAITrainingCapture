@@ -58,6 +58,7 @@ class Gui(QtWidgets.QWidget):
 
         self.rms_trace = None
         self.waveform_trace = None
+        self.processing_detection = False
 
         # Interpret image data as row-major instead of col-major
         pg.setConfigOptions(imageAxisOrder='row-major')
@@ -66,13 +67,14 @@ class Gui(QtWidgets.QWidget):
         self.sample_writer = SampleWriter(self.cartridge_array[self.cartridge_combobox.currentIndex()])
 
     def draw(self):
-        waveform = self.audio_handler.get_latest_waveform()
-        rms = self.audio_handler.get_latest_rms()
+        if not self.processing_detection:
+            waveform = self.audio_handler.get_latest_waveform()
+            rms = self.audio_handler.get_latest_rms()
 
-        if waveform is not None:
-            self.update_waveform(waveform)
-        if rms is not None:
-            self.update_rms(rms)
+            if waveform is not None:
+                self.update_waveform(waveform)
+            if rms is not None:
+                self.update_rms(rms)
 
     def capture_rms_baseline(self):
         print("Capturing RMS baseline.")
@@ -120,6 +122,7 @@ class Gui(QtWidgets.QWidget):
     def detection_received(self, detection):
         print(f'Detection received!')
         detection_dialog = DetectionDialog(detection, parent=self)
+        self.processing_detection = True
         button = detection_dialog.exec()
         print(f'Dialog Button: {button}')
         if button == QDialog.DialogCode.Accepted:
@@ -135,6 +138,7 @@ class Gui(QtWidgets.QWidget):
         else:
             print("Unknown button response")
         self.audio_handler.resume()
+        self.processing_detection = False
 
     def set_waveform_data(self, x, y):
         if self.waveform_trace is None:
