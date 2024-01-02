@@ -135,7 +135,7 @@ class AudioHandler(QThread):
                     self.accumulating = True
                     offset = np.argmax(thresh_idx != 0)
                     print(f'Offset: {offset}')
-                    self.detection_block_counter = 1 #(len(thresh_idx) - offset)
+                    self.detection_block_counter = 1  # (len(thresh_idx) - offset)
 
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')

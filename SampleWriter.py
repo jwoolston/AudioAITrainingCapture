@@ -3,7 +3,6 @@ from datetime import datetime
 
 import aifc
 import json
-import music_tag
 
 
 class Sample(object):
@@ -48,9 +47,7 @@ class SampleWriter(object):
         }
 
         # Serializing json
-        json_object = json.dumps(meta_data_json, indent=4)
-
-        file = music_tag.load_file(sample_filename)
-        if file is not None:
-            file["comment"] = json_object
-            file.save()
+        sample_filename = os.path.join(working_dir, f'{path}.json')
+        with open(sample_filename, 'w') as metadata:
+            json_object = json.dumps(meta_data_json, indent=4)
+            metadata.write(json_object)
