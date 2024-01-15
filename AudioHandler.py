@@ -9,9 +9,10 @@ from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 
 
 class Detection(object):
-    def __init__(self, times, buffer, rate, hop_len, n_fft):
+    def __init__(self, times, buffer, channels, rate, hop_len, n_fft):
         self.times = times.copy()
         self.buffer = buffer.copy()
+        self.channels = channels
         self.rate = rate
         self.hop_length = hop_len
         self.n_fft = n_fft
@@ -31,13 +32,14 @@ class AudioHandler(QThread):
         self.pause_wait = QWaitCondition()
 
         # pyaudio
+        self.device_index = None
         self.filter_coef = None
         self.threshold = None
         self.rms = None
         self.FORMAT = pyaudio.paFloat32
-        self.CHANNELS = 1
-        self.RATE = 22050
-        self.CHUNK = 1024 * 1
+        self.CHANNELS = 2
+        self.RATE = 16000
+        self.CHUNK = 1024  # * self.CHANNELS
         self.WINDOW_SIZE = 512
         self.HOP_LENGTH = 512
         self.BUFFER_BLOCKS = int(math.ceil(self.RATE / self.CHUNK))
@@ -47,7 +49,7 @@ class AudioHandler(QThread):
         self.accumulating = False
 
         # Create a buffer for storing 500ms worth of signal
-        self.data_buffer = np.zeros(self.BUFFER_BLOCKS * self.CHUNK)
+        self.data_buffer = np.zeros([self.BUFFER_BLOCKS * self.CHUNK, self.CHANNELS])
         self.times = None
 
         self.ring_buffer_index = 0
@@ -87,7 +89,8 @@ class AudioHandler(QThread):
                            rate=self.RATE,
                            input=True,
                            output=False,
-                           frames_per_buffer=self.CHUNK)
+                           frames_per_buffer=self.CHUNK,
+                           input_device_index=self.device_index)
 
     def reset_stream(self):
         self.stream.close()
@@ -95,20 +98,39 @@ class AudioHandler(QThread):
 
     def work(self):
         self.p = pyaudio.PyAudio()
+        info = self.p.get_host_api_info_by_index(0)
+        numdevices = info.get('deviceCount')
+        for i in range(0, numdevices):
+            if ((self.p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0
+                    and 'Line (USB Sound Device' in self.p.get_device_info_by_host_api_device_index(0, i).get('name')):
+                self.device_index = i
+
+        print(f"Using audio device: {self.p.get_device_info_by_host_api_device_index(0, self.device_index).get('name')}")
         self.stream = self.get_stream()
 
         while self.do_work:
             wf_data = np.frombuffer(self.stream.read(self.CHUNK), dtype=np.float32)
-            filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], wf_data)
+            wf_data = wf_data.reshape(self.CHUNK, self.CHANNELS)
+            left = wf_data[:, 0]
+            right = wf_data[:, 1]
+            print(f"wf_data: {np.shape(wf_data)}, left: {np.shape(left)}, right: {np.shape(right)}")
+            left_filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], left)
+            right_filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], right)
+            filtered_data = np.array([left_filtered_data, right_filtered_data])
+            filtered_data = filtered_data.transpose()
+            print(f"filtered_data: {np.shape(filtered_data)}")
 
             if self.ring_buffer_full:
-                self.data_buffer = np.roll(self.data_buffer, -self.CHUNK)
-                self.data_buffer[-self.CHUNK::] = filtered_data
+                self.data_buffer = np.roll(self.data_buffer, -self.CHUNK, axis=0)
+                self.data_buffer = np.roll(self.data_buffer, -self.CHUNK, axis=1)
+                self.data_buffer[-self.CHUNK::, 0] = filtered_data[:, 0]
+                self.data_buffer[-self.CHUNK::, 1] = filtered_data[:, 1]
                 if self.accumulating:
                     self.detection_block_counter += 1
             else:
                 index = self.ring_buffer_index * self.CHUNK
-                self.data_buffer[index:index + self.CHUNK] = filtered_data
+                self.data_buffer[index:index + self.CHUNK, 0] = filtered_data[:, 0]
+                self.data_buffer[index:index + self.CHUNK, 1] = filtered_data[:, 1]
                 self.ring_buffer_index += 1
                 if self.ring_buffer_index == self.BUFFER_BLOCKS:
                     # Buffer has filled, mark it full and collect a baseline of noise
@@ -116,7 +138,7 @@ class AudioHandler(QThread):
                     print(f'Ring buffer filled')
 
             # Compute the STFT of the buffer after this update for use by the following analysis
-            Sc = librosa.stft(y=self.data_buffer, n_fft=2048, hop_length=self.HOP_LENGTH, center=True,
+            Sc = librosa.stft(y=self.data_buffer[:, 0], n_fft=2048, hop_length=self.HOP_LENGTH, center=True,
                               window=scipy.signal.windows.blackman)
             self.times = librosa.times_like(X=Sc, sr=self.RATE, n_fft=2048, hop_length=self.HOP_LENGTH)
             S = np.abs(Sc)
@@ -128,7 +150,7 @@ class AudioHandler(QThread):
             self.update.emit()
 
             if self.threshold is not None and not self.accumulating:
-                thresh_idx = np.asarray(self.rms > self.threshold).astype(int)
+                thresh_idx = np.asarray(self.rms > 4 * self.threshold).astype(int)
                 # print(f'Thresh Index: {thresh_idx}')
                 nz_count = np.count_nonzero(thresh_idx)
                 if nz_count > 0:
@@ -139,7 +161,7 @@ class AudioHandler(QThread):
 
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')
-                self.detection.emit(Detection(self.times, self.data_buffer, self.RATE, self.HOP_LENGTH, 2048))
+                self.detection.emit(Detection(self.times, self.data_buffer, self.CHANNELS, self.RATE, self.HOP_LENGTH, 2048))
                 self.pause()
                 self.zero_buffer()
                 self.stream = self.get_stream()
@@ -160,7 +182,7 @@ class AudioHandler(QThread):
         sigma = np.percentile(self.rms[::], 84.1) - noise_median
         # Set the minimum RMS energy threshold that is needed in order to declare
         # an "onset" event to be equal to 5 sigma above the median
-        self.threshold = noise_median + 5 * sigma
+        self.threshold = np.sum(self.rms)  # noise_median + 5 * sigma
         print(f'RMS Threshold: {self.threshold}')
 
     def create_butter_highpass(self, cutoff, order=5):
@@ -180,7 +202,7 @@ class AudioHandler(QThread):
     def get_latest_waveform(self):
         if self.times is None:
             return None
-        return self.data_buffer, np.linspace(self.times[0], self.times[-1], len(self.data_buffer))
+        return self.data_buffer[:, 0], np.linspace(self.times[0], self.times[-1], len(self.data_buffer))
 
     def get_latest_rms(self):
         if self.times is None:

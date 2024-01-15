@@ -115,6 +115,7 @@ class Gui(QtWidgets.QWidget):
 
     def stop(self):
         self.stop_audio.emit()
+        self.sample_writer.close()
         self.close()
 
     def detection_received(self, detection):
@@ -129,7 +130,7 @@ class Gui(QtWidgets.QWidget):
             is_edge = detection_dialog.on_edge.get_value()
             cartridge = self.cartridge_combobox.currentText()
             print(f'Success! Score: {score} Is Head: {is_head} Is Edge: {is_edge} Cartridge: {cartridge}')
-            sample = Sample(detection.buffer, detection.rate, score, is_head, is_edge, cartridge)
+            sample = Sample(detection.buffer, detection.channels, detection.rate, score, is_head, is_edge, cartridge)
             self.sample_writer.write_sample(sample)
         elif button == QDialog.DialogCode.Rejected:
             print("Cancel!")

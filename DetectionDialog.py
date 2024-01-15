@@ -79,10 +79,10 @@ class DetectionDialog(QDialog):
         self.rate = detection.rate
         self.hop_length = detection.hop_length
         self.n_fft = detection.n_fft
-        self.times = np.linspace(detection.times[0], detection.times[-1], len(self.data))
+        self.times = np.linspace(detection.times[0], detection.times[-1], np.shape(self.data)[0])
         self.freq = librosa.fft_frequencies(sr=self.rate, n_fft=self.n_fft)
 
-        self.S = np.abs(librosa.stft(y=self.data, hop_length=self.hop_length, n_fft=self.n_fft, center=True,
+        self.S = np.abs(librosa.stft(y=self.data[:, 0], hop_length=self.hop_length, n_fft=self.n_fft, center=True,
                                      window=scipy.signal.windows.blackman))
         self.power = librosa.feature.melspectrogram(S=self.S, sr=self.rate, hop_length=self.hop_length,
                                                     n_fft=self.n_fft, center=True)
@@ -108,7 +108,7 @@ class DetectionDialog(QDialog):
         self.waveform_trace = self.waveform.plot(pen='c', width=3)
         self.waveform.setLabel('left', "Amplitude", units='V')
         self.waveform.setLabel('bottom', "Time", units='s')
-        self.waveform_trace.setData(self.times, self.data)
+        self.waveform_trace.setData(self.times, self.data[:, 0])
 
         # Item for displaying image data
         self.spectrogram_img = pg.ImageItem()
