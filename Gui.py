@@ -57,7 +57,8 @@ class Gui(QtWidgets.QWidget):
         self.layout.addWidget(self.baseline_rms_capture, 2, 3, 1, 1)
 
         self.rms_trace = None
-        self.waveform_trace = None
+        self.left_waveform_trace = None
+        self.right_waveform_trace = None
         self.processing_detection = False
 
         # Interpret image data as row-major instead of col-major
@@ -130,7 +131,7 @@ class Gui(QtWidgets.QWidget):
             is_edge = detection_dialog.on_edge.get_value()
             cartridge = self.cartridge_combobox.currentText()
             print(f'Success! Score: {score} Is Head: {is_head} Is Edge: {is_edge} Cartridge: {cartridge}')
-            sample = Sample(detection.buffer, detection.channels, detection.rate, score, is_head, is_edge, cartridge)
+            sample = Sample(detection.buffer, detection.channels, detection.sample_width, detection.rate, score, is_head, is_edge, cartridge)
             self.sample_writer.write_sample(sample)
         elif button == QDialog.DialogCode.Rejected:
             print("Cancel!")
@@ -140,13 +141,16 @@ class Gui(QtWidgets.QWidget):
         self.processing_detection = False
 
     def set_waveform_data(self, x, y):
-        if self.waveform_trace is None:
-            self.waveform_trace = self.waveform.plot(pen='c', width=3)
+        if self.left_waveform_trace is None:
+            self.left_waveform_trace = self.waveform.plot(pen='w', width=3)
             self.waveform.setXRange(x[0], x[-1], padding=0.005)
             self.waveform.setYRange(-1, 1, padding=0)
             self.waveform.setLabel('left', "Amplitude", units='V')
             self.waveform.setLabel('bottom', "Time", units='s')
-        self.waveform_trace.setData(x, y)
+        if self.right_waveform_trace is None:
+            self.right_waveform_trace = self.waveform.plot(pen='r', width=3)
+        self.left_waveform_trace.setData(x, y[:, 0])
+        self.right_waveform_trace.setData(x, y[:, 1])
 
     def set_rms_data(self, x, y):
         if self.rms_trace is None:

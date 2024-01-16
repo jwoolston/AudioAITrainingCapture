@@ -9,10 +9,11 @@ from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 
 
 class Detection(object):
-    def __init__(self, times, buffer, channels, rate, hop_len, n_fft):
+    def __init__(self, times, buffer, channels, sample_width, rate, hop_len, n_fft):
         self.times = times.copy()
         self.buffer = buffer.copy()
         self.channels = channels
+        self.sample_width = sample_width
         self.rate = rate
         self.hop_length = hop_len
         self.n_fft = n_fft
@@ -89,7 +90,6 @@ class AudioHandler(QThread):
                            rate=self.RATE,
                            input=True,
                            output=False,
-                           frames_per_buffer=self.CHUNK,
                            input_device_index=self.device_index)
 
     def reset_stream(self):
@@ -110,15 +110,13 @@ class AudioHandler(QThread):
 
         while self.do_work:
             wf_data = np.frombuffer(self.stream.read(self.CHUNK), dtype=np.float32)
-            wf_data = wf_data.reshape(self.CHUNK, self.CHANNELS)
-            left = wf_data[:, 0]
-            right = wf_data[:, 1]
-            print(f"wf_data: {np.shape(wf_data)}, left: {np.shape(left)}, right: {np.shape(right)}")
+            # wf_data = wf_data.reshape(self.CHUNK, self.CHANNELS)
+            left = wf_data[0::2]  # wf_data[:, 0]
+            right = wf_data[1::2]  # wf_data[:, 1]
             left_filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], left)
             right_filtered_data = filtfilt(self.filter_coef[0], self.filter_coef[1], right)
             filtered_data = np.array([left_filtered_data, right_filtered_data])
             filtered_data = filtered_data.transpose()
-            print(f"filtered_data: {np.shape(filtered_data)}")
 
             if self.ring_buffer_full:
                 self.data_buffer = np.roll(self.data_buffer, -self.CHUNK, axis=0)
@@ -138,7 +136,7 @@ class AudioHandler(QThread):
                     print(f'Ring buffer filled')
 
             # Compute the STFT of the buffer after this update for use by the following analysis
-            Sc = librosa.stft(y=self.data_buffer[:, 0], n_fft=2048, hop_length=self.HOP_LENGTH, center=True,
+            Sc = librosa.stft(y=self.data_buffer[:, 1], n_fft=2048, hop_length=self.HOP_LENGTH, center=True,
                               window=scipy.signal.windows.blackman)
             self.times = librosa.times_like(X=Sc, sr=self.RATE, n_fft=2048, hop_length=self.HOP_LENGTH)
             S = np.abs(Sc)
@@ -161,7 +159,7 @@ class AudioHandler(QThread):
 
             if self.accumulating and self.detection_block_counter == self.BUFFER_BLOCKS:
                 print(f'Buffer accumulated')
-                self.detection.emit(Detection(self.times, self.data_buffer, self.CHANNELS, self.RATE, self.HOP_LENGTH, 2048))
+                self.detection.emit(Detection(self.times, self.data_buffer, self.CHANNELS, 4, self.RATE, self.HOP_LENGTH, 2048))
                 self.pause()
                 self.zero_buffer()
                 self.stream = self.get_stream()
@@ -202,7 +200,7 @@ class AudioHandler(QThread):
     def get_latest_waveform(self):
         if self.times is None:
             return None
-        return self.data_buffer[:, 0], np.linspace(self.times[0], self.times[-1], len(self.data_buffer))
+        return self.data_buffer, np.linspace(self.times[0], self.times[-1], len(self.data_buffer))
 
     def get_latest_rms(self):
         if self.times is None:
