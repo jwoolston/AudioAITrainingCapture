@@ -2,12 +2,11 @@ import os
 from datetime import datetime
 
 import csv
-import json
 
 import scipy
 
 # field names
-fields = ['category', 'src_file']
+fields = ['category', 'is_head', 'is_edge', 'src_file']
 
 
 class Sample(object):
@@ -23,13 +22,14 @@ class Sample(object):
 
 
 class SampleWriter(object):
-    def __init__(self, directory):
+    def __init__(self, root_directory, directory):
         self.directory = directory
         now = datetime.now()
-        self.root_dir = f'{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}'
+        self.root_dir = root_directory
         # name of csv file
-        csv_filename = f"hits_{datetime.timestamp(now)}.csv"
-        self.csvfile = open(csv_filename, 'w', newline='')
+        csv_filename = f"hits.csv"
+        os.makedirs(self.root_dir, exist_ok=True)
+        self.csvfile = open(os.path.join(self.root_dir, csv_filename), 'a', newline='')
         self.csv_writer = csv.writer(self.csvfile)
         # writing the fields
         self.csv_writer.writerow(fields)
@@ -53,19 +53,5 @@ class SampleWriter(object):
 
         scipy.io.wavfile.write(sample_filename, sample.rate, sample.buffer)
 
-        csv_row = [score_str, sample_filename]
+        csv_row = [score_str, str(sample.is_head), str(sample.is_edge), sample_filename]
         self.csv_writer.writerow(csv_row)
-
-        meta_data_json = {
-            "rate": sample.rate,
-            "score": sample.score,
-            "is_head": sample.is_head,
-            "is_edge": sample.is_edge,
-            "cartridge": sample.cartridge
-        }
-
-        # Serializing json
-        sample_filename = os.path.join(working_dir, f'{path}.json')
-        with open(sample_filename, 'w') as metadata:
-            json_object = json.dumps(meta_data_json, indent=4)
-            metadata.write(json_object)

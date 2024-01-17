@@ -1,3 +1,4 @@
+import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QFileDialog, QComboBox
@@ -65,7 +66,7 @@ class Gui(QtWidgets.QWidget):
         pg.setConfigOptions(imageAxisOrder='row-major')
         pg.setConfigOptions(antialias=True)
 
-        self.sample_writer = SampleWriter(self.cartridge_array[self.cartridge_combobox.currentIndex()])
+        self.sample_writer = SampleWriter("collect", self.cartridge_array[self.cartridge_combobox.currentIndex()])
 
     def draw(self):
         if not self.processing_detection:

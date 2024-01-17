@@ -101,8 +101,9 @@ class AudioHandler(QThread):
         info = self.p.get_host_api_info_by_index(0)
         numdevices = info.get('deviceCount')
         for i in range(0, numdevices):
+            print(f"Device {i}: {self.p.get_device_info_by_host_api_device_index(0, i).get('name')}")
             if ((self.p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0
-                    and 'Line (USB Sound Device' in self.p.get_device_info_by_host_api_device_index(0, i).get('name')):
+                    and 'Line (' in self.p.get_device_info_by_host_api_device_index(0, i).get('name')):
                 self.device_index = i
 
         print(f"Using audio device: {self.p.get_device_info_by_host_api_device_index(0, self.device_index).get('name')}")
